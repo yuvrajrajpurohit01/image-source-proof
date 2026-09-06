@@ -252,7 +252,7 @@ with an unconfirmed face-comparison row; the two refer to different claims.
 
 ![Final panel: actual status of each pipeline stage](docs/screenshots/06.png)
 
-![Independent Sepolia explorer view of the recorded transaction](docs/screenshots/Screenshot 2026-09-06 171137.png)
+![Independent Sepolia explorer view of the recorded transaction](Screenshot%202026-09-06%20171137.png)
 
 
 **Screenshot hygiene:** never show `.env`, private keys, API keys, seed phrases,
