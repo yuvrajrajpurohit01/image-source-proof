@@ -213,14 +213,14 @@ to the observed outcome, including uncertain or failed stages.
 Capture the stage header, input-processing message, and detected face count.
 The caption should distinguish face detection from identity verification.
 
-<!-- ![Stage 1: local face detection and detected count](docs/screenshots/01-face-detection.png) -->
+![Stage 1: local face detection and detected count](docs/screenshots/01.png)
 
 ### Step 2 — Search results and source review
 
 Capture the real search progress, returned social-domain candidates, and operator
 selection. Domain membership alone is not evidence that a particular post is valid.
 
-<!-- ![Stage 2: returned image-source candidates and operator review](docs/screenshots/02-search-and-review.png) -->
+![Stage 2: returned image-source candidates and operator review](docs/screenshots/02.png) 
 
 ### Step 3 — Reported comparison outcome
 
@@ -229,29 +229,29 @@ that is what occurred. Describe it as the model's reported outcome, not proof of
 identity. A screenshot does not establish that the candidate was the original
 image from the reviewed post.
 
-<!-- ![Stage 3: reported comparison outcome and any limitations](docs/screenshots/03-comparison-outcome.png) -->
+[Stage 3: reported comparison outcome and any limitations](docs/screenshots/03.png)
 
 ### Step 4 — Transaction submission and inclusion
 
 Capture the transaction hash, explorer URL, and receipt-success message. A
 submitted hash without a successful receipt is not confirmed inclusion.
 
-<!-- ![Stage 4: Sepolia transaction hash and inclusion result](docs/screenshots/04-sepolia-record.png) -->
+![Stage 4: Sepolia transaction hash and inclusion result](docs/screenshots/04.png)
 
 ### Step 5 — Read-back verification
 
 Capture the decoded on-chain record and byte-comparison result. This is the
 evidence for record integrity, not for the comparison stage's accuracy.
 
-<!-- ![Stage 5: on-chain record read-back and integrity result](docs/screenshots/05-readback-verification.png) -->
+![Stage 5: on-chain record read-back and integrity result](docs/screenshots/05.png)
 
 ### Final summary and independent explorer evidence
 
 Capture all summary rows together. A green “Verified record” panel can coexist
 with an unconfirmed face-comparison row; the two refer to different claims.
 
-<!-- ![Final panel: actual status of each pipeline stage](docs/screenshots/06-terminal-summary.png) -->
-<!-- ![Independent Sepolia explorer view of the recorded transaction](docs/screenshots/07-explorer-evidence.png) -->
+![Final panel: actual status of each pipeline stage](docs/screenshots/06.png)
+[Independent Sepolia explorer view of the recorded transaction](docs/screenshots/07.png)
 
 **Screenshot hygiene:** never show `.env`, private keys, API keys, seed phrases,
 or authenticated RPC URLs. Use only images and evidence you are authorized to
