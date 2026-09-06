@@ -229,7 +229,7 @@ that is what occurred. Describe it as the model's reported outcome, not proof of
 identity. A screenshot does not establish that the candidate was the original
 image from the reviewed post.
 
-[Stage 3: reported comparison outcome and any limitations](docs/screenshots/03.png)
+![Stage 3: reported comparison outcome and any limitations](docs/screenshots/03.png)
 
 ### Step 4 — Transaction submission and inclusion
 
