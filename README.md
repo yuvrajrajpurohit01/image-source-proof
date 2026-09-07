@@ -310,6 +310,237 @@ The outer `face_match_verification` object contains `attempted`, `same_face_verd
 `candidate_image_source`. The entire report is **not** covered by `record_hash`.
 An altered comparison result can therefore remain undetected by record read-back.
 
+How to run main.py
+
+The application is a command-line program. The normal workflow requires an input
+JPEG/PNG using --image. The separate --verify-report mode re-checks an
+existing saved blockchain transaction without running the image-search pipeline
+again.
+
+1. Open the project folder
+
+In Windows PowerShell, move into the folder that contains main.py:
+
+cd "PATH\TO\YOUR\PROJECT"
+
+For example:
+
+cd "E:\image-proof"
+
+On Windows PowerShell, do not use source .venv/bin/activate. That command
+is for Linux/macOS shells.
+
+2. Create a Python virtual environment
+
+This project was originally targeted at Python 3.11.9. If Python 3.11 is
+installed, create the environment with:
+
+py -3.11 -m venv .venv
+
+If py -3.11 is unavailable but your default Python is compatible, you can use:
+
+python -m venv .venv
+
+3. Activate the virtual environment
+
+In Windows PowerShell:
+
+.\.venv\Scripts\Activate.ps1
+
+After activation, the terminal should normally show (.venv) at the beginning
+of the prompt.
+
+If PowerShell blocks script execution, run this once in the current terminal:
+
+Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass
+
+Then activate again:
+
+.\.venv\Scripts\Activate.ps1
+
+You can also avoid activation completely and use the virtual-environment Python
+directly:
+
+.\.venv\Scripts\python.exe --version
+
+4. Install dependencies
+
+If the repository contains requirements.txt, install the pinned dependencies:
+
+python -m pip install --upgrade pip
+pip install -r requirements.txt
+
+If the environment is not activated, use:
+
+.\.venv\Scripts\python.exe -m pip install --upgrade pip
+.\.venv\Scripts\python.exe -m pip install -r requirements.txt
+
+The supplied main.py imports packages including OpenCV, NumPy, Requests,
+python-dotenv, web3.py and Rich, so the submitted requirements.txt should
+include compatible versions of those packages.
+
+5. Create the .env file
+
+Create a file named .env beside main.py.
+
+Example:
+
+SERPAPI_API_KEY=your_serpapi_key
+IMGBB_API_KEY=your_imgbb_key
+SEPOLIA_RPC_URL=your_sepolia_rpc_url
+WALLET_PRIVATE_KEY=your_test_wallet_private_key
+
+Important:
+
+Use an Ethereum Sepolia test wallet, not a wallet holding real funds.
+
+The RPC must point to Sepolia chain ID 11155111.
+
+The wallet needs enough Sepolia test ETH to pay gas.
+
+Never commit .env, API keys, RPC credentials, seed phrases, or private keys
+to GitHub.
+
+Do not paste real credentials into screenshots, demo videos, issues, or README
+examples.
+
+6. Add an input image
+
+Place an authorized JPEG or PNG inside the project, for example:
+
+photos/
+└── test.jpg
+
+The current implementation accepts images up to 20 MiB and stops if it
+cannot detect a face in the input.
+
+7. Run the complete five-stage pipeline
+
+If the virtual environment is activated:
+
+python main.py --image "photos\test.jpg"
+
+Without activating the environment:
+
+.\.venv\Scripts\python.exe main.py --image "photos\test.jpg"
+
+The default search scope is social-domain candidates only.
+
+During the run, the terminal will show:
+
+Local face detection
+
+Whole-image source search and human review
+
+Face-match confirmation for the reviewed candidate
+
+Ethereum Sepolia record creation
+
+On-chain read-back verification
+
+At stage 2, open the returned candidate URLs yourself and enter the number of the
+source you reviewed.
+
+8. Include non-social web results when needed
+
+To explicitly include general web sources in addition to the default social
+domains:
+
+python main.py --image "photos\test.jpg" --include-web
+
+The older explicit social-only form is also supported:
+
+python main.py --image "photos\test.jpg" --social-only
+
+9. Save a run under a custom report name
+
+The default output is:
+
+output/report.json
+
+If that file already exists, the program intentionally refuses to overwrite it.
+For another run, provide a different output path:
+
+python main.py --image "photos\test.jpg" --output "output\run-02.json"
+
+Example with the virtual-environment Python directly:
+
+.\.venv\Scripts\python.exe main.py --image "photos\test.jpg" --output "output\run-02.json"
+
+10. Verify an existing blockchain report
+
+If a transaction was already submitted, or a run stopped after its transaction
+hash was saved, verify the existing report instead of starting a duplicate
+transaction:
+
+python main.py --verify-report "output\report.json"
+
+Or:
+
+.\.venv\Scripts\python.exe main.py --verify-report "output\report.json"
+
+This mode reads the saved transaction and receipt from Sepolia and checks the
+stored on-chain bytes. It does not upload the image, search again, compare
+faces again, or send a new blockchain transaction.
+
+11. Useful checks before a demo
+
+Confirm Python:
+
+python --version
+
+Confirm the required environment variables are visible without printing their
+secret values:
+
+python -c "import os; from dotenv import load_dotenv; load_dotenv(); print('SERPAPI:', bool(os.getenv('SERPAPI_API_KEY'))); print('IMGBB:', bool(os.getenv('IMGBB_API_KEY'))); print('SEPOLIA RPC:', bool(os.getenv('SEPOLIA_RPC_URL'))); print('WALLET:', bool(os.getenv('WALLET_PRIVATE_KEY')))"
+
+Check that the script launches and displays its command-line options:
+
+python main.py --help
+
+12. Common run errors
+
+source is not recognized
+
+You are using a Linux/macOS activation command in Windows PowerShell. Use:
+
+.\.venv\Scripts\Activate.ps1
+
+Missing SERPAPI_API_KEY / Missing IMGBB_API_KEY / Missing SEPOLIA_RPC_URL / Missing WALLET_PRIVATE_KEY
+
+Check that .env exists in the same directory as main.py and that the variable
+names are spelled exactly as shown above.
+
+No face detected
+
+Use a clear, upright, front-facing JPEG/PNG where the face is visible.
+
+No eligible exact-image source candidates found
+
+The image may not have an indexed exact-image match. The program does not invent
+or fabricate search results.
+
+Output already exists
+
+Either verify that saved run:
+
+python main.py --verify-report "output\report.json"
+
+or start a new run with another output file:
+
+python main.py --image "photos\test.jpg" --output "output\another-run.json"
+
+Insufficient Sepolia ETH
+
+Fund only the public address of the test wallet with Sepolia test ETH. Never
+share the wallet private key or seed phrase.
+
+Transaction is still pending
+
+Do not immediately rerun the full pipeline. Use the saved report:
+
+python main.py --verify-report "output\report.json"
+
 ### Reading an existing record
 
 The read-back-only mode accesses an existing transaction. It does not upload a new
