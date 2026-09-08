@@ -2,24 +2,441 @@
 
 ### Whole-image search · Human review · Tamper-evident records
 
-A Python CLI prototype for **Hackerhouse Goa — Task #3**, connecting image-source
-search with a public Ethereum Sepolia record and independent transaction read-back.
-Five numbered terminal stages expose the work as it happens, with source review
-by the operator and a final evidence summary.
+A Python CLI prototype for **Hackerhouse Goa — Task #3** that connects whole-image
+source discovery, human review, local 1:1 face confirmation, and a tamper-evident
+record stored on **Ethereum Sepolia**.
 
-> **What “verified” means here:** the recorded JSON matches the bytes retrieved
-> from a successful blockchain transaction. It does not mean that the person's
-> identity, ownership of the post, or truth of the source has been established.
+> **Verification scope:** a successful blockchain read-back proves that the saved
+> record matches the bytes included in the Sepolia transaction. It does **not**
+> prove a person's identity, account ownership, or the truth of the selected source.
 
-| Interface | Discovery | Default sources | Blockchain | Evidence |
-|---|---|---|---|---|
-| Python terminal CLI | Whole-image reverse search | Social domains | Ethereum Sepolia | JSON report + transaction read-back |
+---
 
-**Explore:** [Scope](#scope-decisions-and-why) · [Architecture](#architecture) ·
-[Five stages](#the-five-stages) · [Screenshots](#terminal-walkthrough-and-screenshots) ·
-[Data and proof](#what-is-recorded-and-what-is-proven) · [Limitations](#known-limitations)
+# Key Information — Read This First
 
-## Scope decisions and why
+## What the project does
+
+The application runs a five-stage workflow:
+
+1. **Local face detection** — checks that a face is present in the input image.
+2. **Whole-image source search** — uploads the complete image temporarily and requests exact-image matches.
+3. **Human review + local 1:1 comparison** — you review a returned source and the app compares the already-selected image pair.
+4. **Sepolia record** — stores a canonical reviewed-source record in a zero-value Ethereum Sepolia transaction.
+5. **Independent read-back** — fetches the transaction again and verifies that the on-chain bytes match the expected record.
+
+## Requirements
+
+- **Python 3.11.x** recommended
+- `main.py`
+- `requirements.txt`
+- `.env` beside `main.py`
+- Authorized JPEG/PNG input image, maximum **20 MiB**
+- SerpAPI API key
+- ImgBB API key
+- Ethereum Sepolia RPC URL
+- Sepolia test wallet with enough test ETH for gas
+
+## Recommended project layout
+
+```text
+image-proof/
+├── main.py
+├── README.md
+├── requirements.txt
+├── .env
+├── .env.example
+├── photos/
+│   └── test.jpg
+├── models/
+├── output/
+└── docs/
+    └── screenshots/
+```
+
+## Required `.env`
+
+Create `.env` in the **same folder as `main.py`**:
+
+```env
+SERPAPI_API_KEY=your_serpapi_key
+IMGBB_API_KEY=your_imgbb_key
+SEPOLIA_RPC_URL=your_sepolia_rpc_url
+WALLET_PRIVATE_KEY=your_test_wallet_private_key
+```
+
+> Never commit `.env`, API keys, RPC credentials, wallet private keys, or seed phrases.
+
+## Fastest setup and run — Windows PowerShell
+
+```powershell
+cd "E:\image-proof"
+py -3.11 -m venv .venv
+.\.venv\Scripts\Activate.ps1
+python -m pip install --upgrade pip
+pip install -r requirements.txt
+python main.py --image "photos\test.jpg"
+```
+
+Replace `E:\image-proof` and `photos\test.jpg` with your real project and image paths.
+
+> Do **not** use `source .venv/bin/activate` in Windows PowerShell. Use
+> `.\.venv\Scripts\Activate.ps1`.
+
+## Main commands
+
+| Task | Command |
+|---|---|
+| Run the full pipeline | `python main.py --image "photos\test.jpg"` |
+| Include non-social web results | `python main.py --image "photos\test.jpg" --include-web` |
+| Explicitly use social-only results | `python main.py --image "photos\test.jpg" --social-only` |
+| Save to another report | `python main.py --image "photos\test.jpg" --output "output\run-02.json"` |
+| Verify an existing report | `python main.py --verify-report "output\report.json"` |
+| Show CLI help | `python main.py --help` |
+
+## What happens during a normal run
+
+The terminal shows these stages in order:
+
+1. `Local face detection`
+2. `Image-source search and review`
+3. `Face-match confirmation (verification, not search)`
+4. `Sepolia record`
+5. `On-chain read-back verification`
+
+At stage 2, open the returned candidate URLs yourself, review the source, and enter
+the number of the candidate you selected.
+
+## Output and reruns
+
+The default report is:
+
+```text
+output/report.json
+```
+
+The program intentionally does **not** overwrite an existing report. For another run:
+
+```powershell
+python main.py --image "photos\test.jpg" --output "output\run-02.json"
+```
+
+If a transaction hash has already been saved, verify that existing run instead of
+immediately sending another transaction:
+
+```powershell
+python main.py --verify-report "output\report.json"
+```
+
+`--verify-report` does not upload the image, search again, rerun face comparison,
+or broadcast a new transaction.
+
+## Important demo and security notes
+
+- Use only images and source material you are authorized to process.
+- Use a **Sepolia test wallet**, not a wallet holding real funds.
+- Never show `.env`, API keys, private keys, seed phrases, or authenticated RPC URLs in screenshots or demo videos.
+- A successful Sepolia transaction proves a record was stored; it does not independently prove the selected source or identity claim.
+- A `same_face` result is a model estimate for the already-selected image pair, not independent identity proof.
+
+---
+
+# Detailed Setup and Troubleshooting
+
+---
+
+### 1. Open the project folder
+
+In **Windows PowerShell**, move into the folder that contains `main.py`:
+
+```powershell
+cd "PATH\TO\YOUR\PROJECT"
+```
+
+For example:
+
+```powershell
+cd "E:\image-proof"
+```
+
+> On Windows PowerShell, do **not** use `source .venv/bin/activate`. That command
+> is for Linux/macOS shells.
+
+### 2. Create a Python virtual environment
+
+This project was originally targeted at Python **3.11.9**. If Python 3.11 is
+installed, create the environment with:
+
+```powershell
+py -3.11 -m venv .venv
+```
+
+If `py -3.11` is unavailable but your default Python is compatible, you can use:
+
+```powershell
+python -m venv .venv
+```
+
+### 3. Activate the virtual environment
+
+In Windows PowerShell:
+
+```powershell
+.\.venv\Scripts\Activate.ps1
+```
+
+After activation, the terminal should normally show `(.venv)` at the beginning
+of the prompt.
+
+If PowerShell blocks script execution, run this once in the current terminal:
+
+```powershell
+Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass
+```
+
+Then activate again:
+
+```powershell
+.\.venv\Scripts\Activate.ps1
+```
+
+You can also avoid activation completely and use the virtual-environment Python
+directly:
+
+```powershell
+.\.venv\Scripts\python.exe --version
+```
+
+### 4. Install dependencies
+
+If the repository contains `requirements.txt`, install the pinned dependencies:
+
+```powershell
+python -m pip install --upgrade pip
+pip install -r requirements.txt
+```
+
+If the environment is not activated, use:
+
+```powershell
+.\.venv\Scripts\python.exe -m pip install --upgrade pip
+.\.venv\Scripts\python.exe -m pip install -r requirements.txt
+```
+
+The supplied `main.py` imports packages including OpenCV, NumPy, Requests,
+python-dotenv, web3.py and Rich, so the submitted `requirements.txt` should
+include compatible versions of those packages.
+
+### 5. Create the `.env` file
+
+Create a file named `.env` **beside `main.py`**.
+
+Example:
+
+```env
+SERPAPI_API_KEY=your_serpapi_key
+IMGBB_API_KEY=your_imgbb_key
+SEPOLIA_RPC_URL=your_sepolia_rpc_url
+WALLET_PRIVATE_KEY=your_test_wallet_private_key
+```
+
+Important:
+
+- Use an **Ethereum Sepolia test wallet**, not a wallet holding real funds.
+- The RPC must point to **Sepolia chain ID `11155111`**.
+- The wallet needs enough **Sepolia test ETH** to pay gas.
+- Never commit `.env`, API keys, RPC credentials, seed phrases, or private keys
+  to GitHub.
+- Do not paste real credentials into screenshots, demo videos, issues, or README
+  examples.
+
+### 6. Add an input image
+
+Place an authorized JPEG or PNG inside the project, for example:
+
+```text
+photos/
+└── test.jpg
+```
+
+The current implementation accepts images up to **20 MiB** and stops if it
+cannot detect a face in the input.
+
+### 7. Run the complete five-stage pipeline
+
+If the virtual environment is activated:
+
+```powershell
+python main.py --image "photos\test.jpg"
+```
+
+Without activating the environment:
+
+```powershell
+.\.venv\Scripts\python.exe main.py --image "photos\test.jpg"
+```
+
+The default search scope is **social-domain candidates only**.
+
+During the run, the terminal will show:
+
+1. Local face detection
+2. Whole-image source search and human review
+3. Face-match confirmation for the reviewed candidate
+4. Ethereum Sepolia record creation
+5. On-chain read-back verification
+
+At stage 2, open the returned candidate URLs yourself and enter the number of the
+source you reviewed.
+
+### 8. Include non-social web results when needed
+
+To explicitly include general web sources in addition to the default social
+domains:
+
+```powershell
+python main.py --image "photos\test.jpg" --include-web
+```
+
+The older explicit social-only form is also supported:
+
+```powershell
+python main.py --image "photos\test.jpg" --social-only
+```
+
+### 9. Save a run under a custom report name
+
+The default output is:
+
+```text
+output/report.json
+```
+
+If that file already exists, the program intentionally refuses to overwrite it.
+For another run, provide a different output path:
+
+```powershell
+python main.py --image "photos\test.jpg" --output "output\run-02.json"
+```
+
+Example with the virtual-environment Python directly:
+
+```powershell
+.\.venv\Scripts\python.exe main.py --image "photos\test.jpg" --output "output\run-02.json"
+```
+
+### 10. Verify an existing blockchain report
+
+If a transaction was already submitted, or a run stopped after its transaction
+hash was saved, verify the existing report instead of starting a duplicate
+transaction:
+
+```powershell
+python main.py --verify-report "output\report.json"
+```
+
+Or:
+
+```powershell
+.\.venv\Scripts\python.exe main.py --verify-report "output\report.json"
+```
+
+This mode reads the saved transaction and receipt from Sepolia and checks the
+stored on-chain bytes. It does **not** upload the image, search again, compare
+faces again, or send a new blockchain transaction.
+
+### 11. Useful checks before a demo
+
+Confirm Python:
+
+```powershell
+python --version
+```
+
+Confirm the required environment variables are visible without printing their
+secret values:
+
+```powershell
+python -c "import os; from dotenv import load_dotenv; load_dotenv(); print('SERPAPI:', bool(os.getenv('SERPAPI_API_KEY'))); print('IMGBB:', bool(os.getenv('IMGBB_API_KEY'))); print('SEPOLIA RPC:', bool(os.getenv('SEPOLIA_RPC_URL'))); print('WALLET:', bool(os.getenv('WALLET_PRIVATE_KEY')))"
+```
+
+Check that the script launches and displays its command-line options:
+
+```powershell
+python main.py --help
+```
+
+### 12. Common run errors
+
+**`source` is not recognized**
+
+You are using a Linux/macOS activation command in Windows PowerShell. Use:
+
+```powershell
+.\.venv\Scripts\Activate.ps1
+```
+
+**`Missing SERPAPI_API_KEY` / `Missing IMGBB_API_KEY` / `Missing SEPOLIA_RPC_URL` / `Missing WALLET_PRIVATE_KEY`**
+
+Check that `.env` exists in the same directory as `main.py` and that the variable
+names are spelled exactly as shown above.
+
+**`No face detected`**
+
+Use a clear, upright, front-facing JPEG/PNG where the face is visible.
+
+**`No eligible exact-image source candidates found`**
+
+The image may not have an indexed exact-image match. The program does not invent
+or fabricate search results.
+
+**`Output already exists`**
+
+Either verify that saved run:
+
+```powershell
+python main.py --verify-report "output\report.json"
+```
+
+or start a new run with another output file:
+
+```powershell
+python main.py --image "photos\test.jpg" --output "output\another-run.json"
+```
+
+**`Insufficient Sepolia ETH`**
+
+Fund only the public address of the test wallet with Sepolia test ETH. Never
+share the wallet private key or seed phrase.
+
+**Transaction is still pending**
+
+Do not immediately rerun the full pipeline. Use the saved report:
+
+```powershell
+python main.py --verify-report "output\report.json"
+```
+
+---
+
+# Table of Contents
+
+1. [Key Information — Read This First](#key-information--read-this-first)
+2. [Detailed Setup and Troubleshooting](#detailed-setup-and-troubleshooting)
+3. [Project Scope](#project-scope)
+4. [Architecture](#architecture)
+5. [Five-Stage Workflow](#five-stage-workflow)
+6. [Technology and Project Files](#technology-and-project-files)
+7. [Recorded Data and Proof Boundary](#recorded-data-and-proof-boundary)
+8. [Screenshots and Demo Evidence](#screenshots-and-demo-evidence)
+9. [Known Limitations](#known-limitations)
+10. [Privacy and Ethical Use](#privacy-and-ethical-use)
+11. [Validation and Submission Evidence](#validation-and-submission-evidence)
+12. [What Changed](#what-changed)
+13. [Terminal Behavior](#terminal-behavior)
+
+---
+
+# Project Scope
 
 This document describes the supplied five-stage `main.py`, including its added
 comparison stage. It is an implementation overview and evidence guide, not an
@@ -47,24 +464,9 @@ general facial-identification or people-search service. There is no embedding
 search index, bulk face-search interface, or profile-enrichment stage in the
 supplied implementation. No claim of verified identity is made by this README.
 
-## What changed in this version
+---
 
-| Addition | Actual behavior in the supplied code |
-|---|---|
-| Five-stage workflow | Adds a comparison stage between source review and blockchain recording. |
-| Post-selection comparison | YuNet detects and aligns faces; SFace produces comparison features locally. |
-| Expanded report | Saves comparison metrics, verdict, reason, and encoding hashes without raw vectors. |
-| Model-file checks | Downloads model files when needed and checks them against SHA-256 constants in the code. |
-| Social-first results | Filters candidates by allowed domains unless the web override is selected. |
-| Rich presentation | Numbered rules, colors, live network spinners, and a boxed outcome summary. |
-| Recovery checkpoints | Saves the expected transaction hash before broadcast and receipt information after inclusion. |
-| Independent read-back | Re-fetches transaction input and receipt, then compares the on-chain bytes with the saved record. |
-
-**Important distinction:** stage 1 uses a Haar cascade; stage 3 uses YuNet. These
-are different detectors. This version also does not generally extract an image
-from the reviewed page's HTML.
-
-## Architecture
+# Architecture
 
 ```mermaid
 flowchart TD
@@ -104,7 +506,9 @@ comparison uncertainty continues to stage 4; it is not an acceptance gate.
 | Sepolia RPC | Accepts a signed transaction and returns chain data | Receives the signed transaction, not the wallet private key. |
 | Sepolia explorer | Public inspection of transaction evidence | Provides an external view of the transaction. |
 
-## The five stages
+---
+
+# Five-Stage Workflow
 
 ### 1. Local face detection
 
@@ -198,7 +602,88 @@ The final report includes block information, confirmation count, and verificatio
 time. One mined block is sufficient for the current success condition; this is
 not a claim of finality.
 
-## Terminal walkthrough and screenshots
+---
+
+# Technology and Project Files
+
+| Technology | Role observed in the supplied implementation |
+|---|---|
+| Python | CLI orchestration, error handling and report generation |
+| OpenCV + NumPy | Image decoding, local detection and added image comparison |
+| Requests | Uploads, search requests and image/model retrieval |
+| python-dotenv | Loads configuration beside `main.py`; existing environment variables take precedence |
+| Rich | Terminal colors, stage rules, network status and result panels |
+| web3.py | Transaction signing/broadcast and read-back checks |
+| hashlib / JSON | SHA-256 and canonical serialization |
+
+The earlier project targeted Python **3.11.9** and used pinned direct dependencies.
+An updated `requirements.txt` was not attached for this documentation review, so
+this README does not certify the installed versions or model compatibility of the
+uploaded five-stage build. Model files are additional runtime assets, not Python
+packages bundled into the submitted source.
+
+| File or folder | Purpose |
+|---|---|
+| `main.py` | Five-stage application supplied for this review |
+| `README.md` | Architecture, behavior, evidence and limitations |
+| `requirements.txt` | Project dependency pins; verify against the submitted build |
+| `.env.example` | Credential names without real secrets |
+| `.env` | Local secrets; never publish |
+| `models/` | Cached model assets used by the added comparison stage |
+| `photos/` | Local input photographs; publish only with appropriate permission |
+| `output/` | Run reports and recovery state |
+| `docs/screenshots/` | Selected terminal and explorer evidence |
+
+Configuration names present in the code are `SERPAPI_API_KEY`, `IMGBB_API_KEY`,
+`SEPOLIA_RPC_URL`, and `WALLET_PRIVATE_KEY`. These must not be included in screenshots
+or repository history. A faucet uses a public wallet address, never the private key.
+
+---
+
+# Recorded Data and Proof Boundary
+
+### Record integrity boundary
+
+```mermaid
+flowchart TD
+    A["Canonical record object"] --> B["SHA-256 record hash"]
+    A --> C["Prefix plus UTF-8 JSON"]
+    C --> D["Sepolia transaction input"]
+    D --> E["RPC read-back"]
+    E --> F{"Exact expected bytes?"}
+    B --> F
+    F --> G["Record integrity result"]
+    H["Local report: candidates, comparison, UI history"] --> I["Outside the on-chain integrity boundary"]
+```
+
+| Data | Local report | Inside the on-chain record |
+|---|---|---|
+| Input image SHA-256 | Yes, under `record` | Yes |
+| Selected source URL | Yes | Yes |
+| Record timestamp, schema, search type, assertion | Yes | Yes |
+| Face detection rectangles and count | Yes | No |
+| Search candidates, thumbnails, API search ID and search scope | Yes | No |
+| Comparison metrics, thresholds, verdict and reason | Yes | No |
+| Input and candidate encoding hashes | When produced | No |
+| Raw face vectors | Not serialized into the report | No |
+| Input photograph or source-page body | Not embedded in the JSON report | No |
+| Transaction hash, explorer link and receipt metadata | Yes | Transaction metadata, not fields in the payload |
+
+The on-chain `record` has these fields:
+
+`schema` · `image_sha256` · `matched_url` · `timestamp` · `search_type` · `assertion`
+
+`record_hash` is SHA-256 over sorted-key, compact UTF-8 JSON. The transaction input
+starts with `IMAGE_SOURCE_PROOF_V1` followed by a newline and that JSON.
+
+The outer `face_match_verification` object contains `attempted`, `same_face_verdict`,
+`reason`, the distance-metric fields, threshold fields, both encoding hashes, and
+`candidate_image_source`. The entire report is **not** covered by `record_hash`.
+An altered comparison result can therefore remain undetected by record read-back.
+
+---
+
+# Screenshots and Demo Evidence
 
 **Evidence status: screenshots have not yet been added.** The slots below are
 intentionally commented out so the README does not display broken images or
@@ -269,343 +754,9 @@ Screenshots explain individual steps; they do not replace the hackathon's requir
 unedited end-to-end recording. No screenshot or successful transaction is supplied
 or fabricated by this README.
 
-## What is recorded and what is proven
+---
 
-### Record integrity boundary
-
-```mermaid
-flowchart TD
-    A["Canonical record object"] --> B["SHA-256 record hash"]
-    A --> C["Prefix plus UTF-8 JSON"]
-    C --> D["Sepolia transaction input"]
-    D --> E["RPC read-back"]
-    E --> F{"Exact expected bytes?"}
-    B --> F
-    F --> G["Record integrity result"]
-    H["Local report: candidates, comparison, UI history"] --> I["Outside the on-chain integrity boundary"]
-```
-
-| Data | Local report | Inside the on-chain record |
-|---|---|---|
-| Input image SHA-256 | Yes, under `record` | Yes |
-| Selected source URL | Yes | Yes |
-| Record timestamp, schema, search type, assertion | Yes | Yes |
-| Face detection rectangles and count | Yes | No |
-| Search candidates, thumbnails, API search ID and search scope | Yes | No |
-| Comparison metrics, thresholds, verdict and reason | Yes | No |
-| Input and candidate encoding hashes | When produced | No |
-| Raw face vectors | Not serialized into the report | No |
-| Input photograph or source-page body | Not embedded in the JSON report | No |
-| Transaction hash, explorer link and receipt metadata | Yes | Transaction metadata, not fields in the payload |
-
-The on-chain `record` has these fields:
-
-`schema` · `image_sha256` · `matched_url` · `timestamp` · `search_type` · `assertion`
-
-`record_hash` is SHA-256 over sorted-key, compact UTF-8 JSON. The transaction input
-starts with `IMAGE_SOURCE_PROOF_V1` followed by a newline and that JSON.
-
-The outer `face_match_verification` object contains `attempted`, `same_face_verdict`,
-`reason`, the distance-metric fields, threshold fields, both encoding hashes, and
-`candidate_image_source`. The entire report is **not** covered by `record_hash`.
-An altered comparison result can therefore remain undetected by record read-back.
-
-How to run main.py
-
-The application is a command-line program. The normal workflow requires an input
-JPEG/PNG using --image. The separate --verify-report mode re-checks an
-existing saved blockchain transaction without running the image-search pipeline
-again.
-
-1. Open the project folder
-
-In Windows PowerShell, move into the folder that contains main.py:
-
-cd "PATH\TO\YOUR\PROJECT"
-
-For example:
-
-cd "E:\image-proof"
-
-On Windows PowerShell, do not use source .venv/bin/activate. That command
-is for Linux/macOS shells.
-
-2. Create a Python virtual environment
-
-This project was originally targeted at Python 3.11.9. If Python 3.11 is
-installed, create the environment with:
-
-py -3.11 -m venv .venv
-
-If py -3.11 is unavailable but your default Python is compatible, you can use:
-
-python -m venv .venv
-
-3. Activate the virtual environment
-
-In Windows PowerShell:
-
-.\.venv\Scripts\Activate.ps1
-
-After activation, the terminal should normally show (.venv) at the beginning
-of the prompt.
-
-If PowerShell blocks script execution, run this once in the current terminal:
-
-Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass
-
-Then activate again:
-
-.\.venv\Scripts\Activate.ps1
-
-You can also avoid activation completely and use the virtual-environment Python
-directly:
-
-.\.venv\Scripts\python.exe --version
-
-4. Install dependencies
-
-If the repository contains requirements.txt, install the pinned dependencies:
-
-python -m pip install --upgrade pip
-pip install -r requirements.txt
-
-If the environment is not activated, use:
-
-.\.venv\Scripts\python.exe -m pip install --upgrade pip
-.\.venv\Scripts\python.exe -m pip install -r requirements.txt
-
-The supplied main.py imports packages including OpenCV, NumPy, Requests,
-python-dotenv, web3.py and Rich, so the submitted requirements.txt should
-include compatible versions of those packages.
-
-5. Create the .env file
-
-Create a file named .env beside main.py.
-
-Example:
-
-SERPAPI_API_KEY=your_serpapi_key
-IMGBB_API_KEY=your_imgbb_key
-SEPOLIA_RPC_URL=your_sepolia_rpc_url
-WALLET_PRIVATE_KEY=your_test_wallet_private_key
-
-Important:
-
-Use an Ethereum Sepolia test wallet, not a wallet holding real funds.
-
-The RPC must point to Sepolia chain ID 11155111.
-
-The wallet needs enough Sepolia test ETH to pay gas.
-
-Never commit .env, API keys, RPC credentials, seed phrases, or private keys
-to GitHub.
-
-Do not paste real credentials into screenshots, demo videos, issues, or README
-examples.
-
-6. Add an input image
-
-Place an authorized JPEG or PNG inside the project, for example:
-
-photos/
-└── test.jpg
-
-The current implementation accepts images up to 20 MiB and stops if it
-cannot detect a face in the input.
-
-7. Run the complete five-stage pipeline
-
-If the virtual environment is activated:
-
-python main.py --image "photos\test.jpg"
-
-Without activating the environment:
-
-.\.venv\Scripts\python.exe main.py --image "photos\test.jpg"
-
-The default search scope is social-domain candidates only.
-
-During the run, the terminal will show:
-
-Local face detection
-
-Whole-image source search and human review
-
-Face-match confirmation for the reviewed candidate
-
-Ethereum Sepolia record creation
-
-On-chain read-back verification
-
-At stage 2, open the returned candidate URLs yourself and enter the number of the
-source you reviewed.
-
-8. Include non-social web results when needed
-
-To explicitly include general web sources in addition to the default social
-domains:
-
-python main.py --image "photos\test.jpg" --include-web
-
-The older explicit social-only form is also supported:
-
-python main.py --image "photos\test.jpg" --social-only
-
-9. Save a run under a custom report name
-
-The default output is:
-
-output/report.json
-
-If that file already exists, the program intentionally refuses to overwrite it.
-For another run, provide a different output path:
-
-python main.py --image "photos\test.jpg" --output "output\run-02.json"
-
-Example with the virtual-environment Python directly:
-
-.\.venv\Scripts\python.exe main.py --image "photos\test.jpg" --output "output\run-02.json"
-
-10. Verify an existing blockchain report
-
-If a transaction was already submitted, or a run stopped after its transaction
-hash was saved, verify the existing report instead of starting a duplicate
-transaction:
-
-python main.py --verify-report "output\report.json"
-
-Or:
-
-.\.venv\Scripts\python.exe main.py --verify-report "output\report.json"
-
-This mode reads the saved transaction and receipt from Sepolia and checks the
-stored on-chain bytes. It does not upload the image, search again, compare
-faces again, or send a new blockchain transaction.
-
-11. Useful checks before a demo
-
-Confirm Python:
-
-python --version
-
-Confirm the required environment variables are visible without printing their
-secret values:
-
-python -c "import os; from dotenv import load_dotenv; load_dotenv(); print('SERPAPI:', bool(os.getenv('SERPAPI_API_KEY'))); print('IMGBB:', bool(os.getenv('IMGBB_API_KEY'))); print('SEPOLIA RPC:', bool(os.getenv('SEPOLIA_RPC_URL'))); print('WALLET:', bool(os.getenv('WALLET_PRIVATE_KEY')))"
-
-Check that the script launches and displays its command-line options:
-
-python main.py --help
-
-12. Common run errors
-
-source is not recognized
-
-You are using a Linux/macOS activation command in Windows PowerShell. Use:
-
-.\.venv\Scripts\Activate.ps1
-
-Missing SERPAPI_API_KEY / Missing IMGBB_API_KEY / Missing SEPOLIA_RPC_URL / Missing WALLET_PRIVATE_KEY
-
-Check that .env exists in the same directory as main.py and that the variable
-names are spelled exactly as shown above.
-
-No face detected
-
-Use a clear, upright, front-facing JPEG/PNG where the face is visible.
-
-No eligible exact-image source candidates found
-
-The image may not have an indexed exact-image match. The program does not invent
-or fabricate search results.
-
-Output already exists
-
-Either verify that saved run:
-
-python main.py --verify-report "output\report.json"
-
-or start a new run with another output file:
-
-python main.py --image "photos\test.jpg" --output "output\another-run.json"
-
-Insufficient Sepolia ETH
-
-Fund only the public address of the test wallet with Sepolia test ETH. Never
-share the wallet private key or seed phrase.
-
-Transaction is still pending
-
-Do not immediately rerun the full pipeline. Use the saved report:
-
-python main.py --verify-report "output\report.json"
-
-### Reading an existing record
-
-The read-back-only mode accesses an existing transaction. It does not upload a new
-image, discover candidates, run the comparison, or broadcast another transaction:
-
-```powershell
-.\.venv\Scripts\python.exe main.py --verify-report "output\report.json"
-```
-
-This mode needs the configured Sepolia RPC. Substitute the actual saved report
-filename if a run used a custom output path. Earlier-stage summary rows are
-saved-run history, not stages re-executed during this command.
-
-The report itself is not an independent trust anchor: retain the transaction ID
-separately when demonstrating that neither a record nor its reference was replaced.
-
-## Technology and project files
-
-| Technology | Role observed in the supplied implementation |
-|---|---|
-| Python | CLI orchestration, error handling and report generation |
-| OpenCV + NumPy | Image decoding, local detection and added image comparison |
-| Requests | Uploads, search requests and image/model retrieval |
-| python-dotenv | Loads configuration beside `main.py`; existing environment variables take precedence |
-| Rich | Terminal colors, stage rules, network status and result panels |
-| web3.py | Transaction signing/broadcast and read-back checks |
-| hashlib / JSON | SHA-256 and canonical serialization |
-
-The earlier project targeted Python **3.11.9** and used pinned direct dependencies.
-An updated `requirements.txt` was not attached for this documentation review, so
-this README does not certify the installed versions or model compatibility of the
-uploaded five-stage build. Model files are additional runtime assets, not Python
-packages bundled into the submitted source.
-
-| File or folder | Purpose |
-|---|---|
-| `main.py` | Five-stage application supplied for this review |
-| `README.md` | Architecture, behavior, evidence and limitations |
-| `requirements.txt` | Project dependency pins; verify against the submitted build |
-| `.env.example` | Credential names without real secrets |
-| `.env` | Local secrets; never publish |
-| `models/` | Cached model assets used by the added comparison stage |
-| `photos/` | Local input photographs; publish only with appropriate permission |
-| `output/` | Run reports and recovery state |
-| `docs/screenshots/` | Selected terminal and explorer evidence |
-
-Configuration names present in the code are `SERPAPI_API_KEY`, `IMGBB_API_KEY`,
-`SEPOLIA_RPC_URL`, and `WALLET_PRIVATE_KEY`. These must not be included in screenshots
-or repository history. A faucet uses a public wallet address, never the private key.
-
-## Terminal behavior
-
-- Five numbered cyan stage dividers show the current phase.
-- Existing `OK:` messages are green; top-level errors are red.
-- Network status spinners are scoped to real calls and receipt polling, with no
-  artificial percentage or presentation delay.
-- Operator prompts and local processing are not represented as network progress.
-- The final panel distinguishes detection, review, comparison, transaction
-  confirmation, and record verification.
-- Read-back mode labels prior detection, review, and comparison as saved-run history.
-- URLs and provider-derived text are rendered literally rather than as Rich markup.
-- Non-terminal output does not animate spinners. Color support depends on the
-  terminal; explicit text remains alongside status symbols.
-
-## Known limitations
+# Known Limitations
 
 ### Search and social sources
 
@@ -647,7 +798,9 @@ or repository history. A faucet uses a public wallet address, never the private 
 - Concurrent use of one wallet can produce nonce conflicts. The code preserves
   transaction references but does not implement concurrent transaction management.
 
-## Privacy and ethical use
+---
+
+# Privacy and Ethical Use
 
 The intended use constraint is consenting subjects and authorized source material.
 Using images to identify or locate non-consenting individuals raises serious
@@ -663,7 +816,9 @@ Model outcomes must not be presented as proof that someone owns a social account
 appears in a verified post, or has consented. Keep secrets and unnecessary personal
 data out of the repository, reports shared with others, screenshots and recording.
 
-## Validation and submission evidence
+---
+
+# Validation and Submission Evidence
 
 This README was checked against the uploaded `main.py` by source inspection.
 **The five-stage build was not executed or independently validated in this review.**
@@ -687,3 +842,40 @@ honestly; do not replace them with staged success output.
 
 **The deliverable is an inspectable record of what was selected and stored—not a
 blockchain proof of a person's identity.**
+
+---
+
+# What Changed
+
+| Addition | Actual behavior in the supplied code |
+|---|---|
+| Five-stage workflow | Adds a comparison stage between source review and blockchain recording. |
+| Post-selection comparison | YuNet detects and aligns faces; SFace produces comparison features locally. |
+| Expanded report | Saves comparison metrics, verdict, reason, and encoding hashes without raw vectors. |
+| Model-file checks | Downloads model files when needed and checks them against SHA-256 constants in the code. |
+| Social-first results | Filters candidates by allowed domains unless the web override is selected. |
+| Rich presentation | Numbered rules, colors, live network spinners, and a boxed outcome summary. |
+| Recovery checkpoints | Saves the expected transaction hash before broadcast and receipt information after inclusion. |
+| Independent read-back | Re-fetches transaction input and receipt, then compares the on-chain bytes with the saved record. |
+
+**Important distinction:** stage 1 uses a Haar cascade; stage 3 uses YuNet. These
+are different detectors. This version also does not generally extract an image
+from the reviewed page's HTML.
+
+---
+
+# Terminal Behavior
+
+- Five numbered cyan stage dividers show the current phase.
+- Existing `OK:` messages are green; top-level errors are red.
+- Network status spinners are scoped to real calls and receipt polling, with no
+  artificial percentage or presentation delay.
+- Operator prompts and local processing are not represented as network progress.
+- The final panel distinguishes detection, review, comparison, transaction
+  confirmation, and record verification.
+- Read-back mode labels prior detection, review, and comparison as saved-run history.
+- URLs and provider-derived text are rendered literally rather than as Rich markup.
+- Non-terminal output does not animate spinners. Color support depends on the
+  terminal; explicit text remains alongside status symbols.
+
+---
